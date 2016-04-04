@@ -7,12 +7,14 @@ module Data.Shell where
 import Prologue hiding (Getter, Setter)
 
 import Data.Construction
-import Data.Layer.Cover_OLD
+import Data.Cover
 import Type.Bool
-import Data.RTuple
+
+import           Data.RTuple (TMap, Assocs, Access, Accessible, access, head', tail2, prepend2)
+import qualified Data.RTuple as List
 
 import Data.Convert
-import Data.Layer
+import Data.Layer_OLD
 import Control.DeepSeq
 import GHC.Generics (Generic)
 import Data.Prop
@@ -32,6 +34,8 @@ type family LayerBase l
 type family LayerData l base
 newtype     Layer     l base = Layer (LayerData l base)
 
+makeWrapped ''Layer
+
 
 -- === Utils === --
 
@@ -43,24 +47,15 @@ type family Layers ls base where
 -- === Instances === --
 
 -- Basic
-type instance LayerBase (Layer l base) = base
+deriving instance NFData (LayerData l a)         => NFData (Layer l a)
+deriving instance Show   (Unwrapped (Layer l a)) => Show   (Layer l a)
 
--- Normal Form
-deriving instance NFData (LayerData l base) => NFData (Layer l base)
-
--- Show
-deriving instance Show (Unwrapped (Layer l a)) => Show (Layer l a)
-
--- Wrappers
-makeWrapped ''Layer
-type instance Uncovered (Layer l a) = Uncovered (Unlayered (Layer l a))
-type instance Unlayered (Layer l a) = Unwrapped (Layer l a)
-instance      Layered   (Layer l a)
+-- Base
+type instance LayerBase (Layer l a) = a
 
 -- Casting
 instance Castable (Unwrapped (Layer l a)) (Unwrapped (Layer l' a')) => Castable (Layer l a) (Layer l' a') where
     cast = wrapped %~ cast ; {-# INLINE cast #-}
-
 
 
 --------------------
@@ -69,25 +64,24 @@ instance Castable (Unwrapped (Layer l a)) (Unwrapped (Layer l' a')) => Castable 
 
 -- === Definitions === --
 
---type    Shelled (ls :: [*]) (a :: *) = Cover2 (Shell ls a) a
---newtype Shell   (ls :: [*]) (a :: *) = Shell (TMap (Assocs ls (Layers ls a)))
---makeWrapped ''Shell
+type    Shelled (ls :: [*]) (a :: *) = Cover (Shell ls a) a
+newtype Shell   (ls :: [*]) (a :: *) = Shell (TMap (Assocs ls (Layers ls a)))
+makeWrapped ''Shell
 
---type ls :|  a = Shelled ls a
---type ls :|: a = ls :| a ls
-
-
----- === Utils === --
-
---layer :: forall ls l a. (Access l (Assocs ls (Layers ls a)) ~ Layer l a, Accessible l (Assocs ls (Layers ls a)))
---      => Lens' (Shell ls a) (Layer l a)
---layer = wrapped' . access (Proxy :: Proxy l)
+type ls :|  a = Shelled ls a
+type ls :|: a = ls :| a ls
 
 
----- === Instances === --
+-- === Utils === --
 
---type instance Unlayered (Shelled (l ': ls) a) = Shelled ls a
---instance      Layered   (Shelled (l ': ls) a) where
---    layered = lens (\(Cover2 s a) -> Cover2 (s & wrapped %~ (^. tail2)) a) (\(Cover2 (Shell tmap) _) (Cover2 s a) -> Cover2 (s & wrapped %~ prepend2 (tmap ^. (wrapped' . head'))) a)
---    --layered = lens (\(Cover2 s a) -> Cover2 (s & wrapped %~ (^. tail2)) a) (\(Cover2 (Shell tmap) _) s -> s & covering2 %~ (wrapped %~ prepend2 (tmap ^. (wrapped' . head'))))
+layer :: forall ls l a. (Access l (Assocs ls (Layers ls a)) ~ Layer l a, Accessible l (Assocs ls (Layers ls a)))
+      => Lens' (Shell ls a) (Layer l a)
+layer = wrapped' . access (Proxy :: Proxy l)
+
+
+-- === Instances === --
+
+type instance Unlayered (Shelled (l ': ls) a) = Shelled ls a
+instance      Layered   (Shelled (l ': ls) a) where
+    layered = lens (\(Cover s a) -> Cover (s & wrapped %~ (^. tail2)) a) (\(Cover (Shell tmap) _) (Cover s a) -> Cover (s & wrapped %~ prepend2 (tmap ^. (wrapped' . head'))) a)
 

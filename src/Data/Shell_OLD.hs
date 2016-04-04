@@ -7,12 +7,12 @@ module Data.Shell_OLD where
 import Prologue hiding (Getter, Setter)
 
 import Data.Construction
-import Data.Layer.Cover_OLD
+import Data.Layer_OLD.Cover_OLD
 import Type.Bool
 import Data.RTuple
 
 import Data.Convert
-import Data.Layer
+import Data.Layer_OLD
 import Control.DeepSeq
 import GHC.Generics (Generic)
 import Data.Prop
