@@ -6,22 +6,9 @@ module Data.Shell where
 
 import Prologue hiding (Getter, Setter)
 
-import Data.Construction
 import Data.Cover
-import Type.Bool
-
-import           Data.RTuple (TMap, Assocs, Access, Accessible, access, head', tail2, prepend2)
-import qualified Data.RTuple as List
-
-import Data.Convert
-import Data.Layer_OLD
-import Control.DeepSeq
-import GHC.Generics (Generic)
-import Data.Prop
-import Data.Typeable (Proxy(Proxy))
-
-
-import Control.Lens (view)
+import Data.RTuple (TMap, Assocs, Access, Accessible, access, head', tail2, prepend2)
+import Type.Applicative
 
 
 --------------------
@@ -30,58 +17,73 @@ import Control.Lens (view)
 
 -- === Definitions === --
 
-type family LayerBase l
-type family LayerData l base
-newtype     Layer     l base = Layer (LayerData l base)
+newtype Layer  t l  = Layer (LayerData t l)
+type    Layers t ls = Layer t <$> ls
 
-makeWrapped ''Layer
+type family LayerType   l
+type family LayerData t l
+type family LayerInfo t a
 
-
--- === Utils === --
-
-type family Layers ls base where
-            Layers '[]       base = '[]
-            Layers (l ': ls) base = Layer l base ': Layers ls base
+class    HasLayer l a where layer :: Lens' a (Layer (LayerInfo (LayerType l) a) l)
+instance HasLayer I a where layer = impossible
+instance HasLayer l I where layer = impossible
 
 
 -- === Instances === --
 
+-- Wrappers
+makeWrapped ''Layer
+
 -- Basic
-deriving instance NFData (LayerData l a)         => NFData (Layer l a)
-deriving instance Show   (Unwrapped (Layer l a)) => Show   (Layer l a)
+deriving instance NFData (LayerData t l) => NFData (Layer t l)
+deriving instance Show   (LayerData t l) => Show   (Layer t l)
 
 -- Base
-type instance LayerBase (Layer l a) = a
+type instance LayerType (Layer t l) = t
 
 -- Casting
-instance Castable (Unwrapped (Layer l a)) (Unwrapped (Layer l' a')) => Castable (Layer l a) (Layer l' a') where
+instance Castable (Unwrapped (Layer t l)) (Unwrapped (Layer t' l')) => Castable (Layer t l) (Layer t' l') where
     cast = wrapped %~ cast ; {-# INLINE cast #-}
 
 
+
 --------------------
--- === Shell === ---
+-- === Shell === --
 --------------------
 
 -- === Definitions === --
 
-type    Shelled (ls :: [*]) (a :: *) = Cover (Shell ls a) a
-newtype Shell   (ls :: [*]) (a :: *) = Shell (TMap (Assocs ls (Layers ls a)))
+newtype Shell   t (ls :: [*]) = Shell (TMap (Assocs ls (Layers t ls)))
+type    Shelled t (ls :: [*]) = Cover (Shell t ls)
 makeWrapped ''Shell
-
-type ls :|  a = Shelled ls a
-type ls :|: a = ls :| a ls
 
 
 -- === Utils === --
 
-layer :: forall ls l a. (Access l (Assocs ls (Layers ls a)) ~ Layer l a, Accessible l (Assocs ls (Layers ls a)))
-      => Lens' (Shell ls a) (Layer l a)
-layer = wrapped' . access (Proxy :: Proxy l)
+shellLayer :: forall ls l t. (Access l (Assocs ls (Layers t ls)) ~ Layer t l, Accessible l (Assocs ls (Layers t ls)))
+           => Lens' (Shell t ls) (Layer t l)
+shellLayer = wrapped' . access (Proxy :: Proxy l) ; {-# INLINE shellLayer #-}
 
 
 -- === Instances === --
 
-type instance Unlayered (Shelled (l ': ls) a) = Shelled ls a
-instance      Layered   (Shelled (l ': ls) a) where
+type instance Unlayered (Shelled t (l ': ls) a) = Shelled t ls a
+instance      Layered   (Shelled t (l ': ls) a) where
     layered = lens (\(Cover s a) -> Cover (s & wrapped %~ (^. tail2)) a) (\(Cover (Shell tmap) _) (Cover s a) -> Cover (s & wrapped %~ prepend2 (tmap ^. (wrapped' . head'))) a)
+    {-# INLINE layered #-}
 
+
+
+-- type :|
+-- -- class
+--
+-- type family TermOf a
+-- data TermLayerType
+-- data TermLayer a
+-- type instance LayerInfo TermLayerType a = TermLayer (TermOf a)
+--
+--
+-- data Succs
+--
+-- type instance LayerType Succs = TermLayerType
+-- type instance LayerData (TermLayer term) Succs = Int

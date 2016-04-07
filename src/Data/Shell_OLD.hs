@@ -9,25 +9,48 @@ import Prologue hiding (Getter, Setter)
 import Data.Construction
 import Data.Layer_OLD.Cover_OLD
 import Type.Bool
-import Data.RTuple
-
-import Data.Convert
-import Data.Layer_OLD
-import Control.DeepSeq
-import GHC.Generics (Generic)
 import Data.Prop
-import Data.Typeable (Proxy(Proxy))
 
-
-import Control.Lens (view)
-import Data.Shell (Layer(Layer), Layers)
 
 
 ----------------------------------------------------------------------------
 -- OLD IMPLEMENTATION
 ----------------------------------------------------------------------------
 
+--------------------
+-- === Layers === --
+--------------------
 
+-- === Definitions === --
+
+type family LayerBase l
+type family LayerData l base
+newtype     Layer     l base = Layer (LayerData l base)
+
+makeWrapped ''Layer
+
+
+-- === Utils === --
+
+type family Layers ls base where
+            Layers '[]       base = '[]
+            Layers (l ': ls) base = Layer l base ': Layers ls base
+
+
+-- === Instances === --
+
+-- Basic
+deriving instance NFData (LayerData l a)         => NFData (Layer l a)
+deriving instance Show   (Unwrapped (Layer l a)) => Show   (Layer l a)
+
+-- Base
+type instance LayerBase (Layer l a) = a
+
+-- Casting
+instance Castable (Unwrapped (Layer l a)) (Unwrapped (Layer l' a')) => Castable (Layer l a) (Layer l' a') where
+    cast = wrapped %~ cast ; {-# INLINE cast #-}
+
+    
 ----------------------
 -- === Attached === --
 ----------------------
@@ -131,11 +154,3 @@ instance {-# OVERLAPPABLE #-} Castable (Unwrapped (ls :< a)) (Unwrapped (ls' :< 
 type instance                                Prop a (ls :< t) = Prop a (Unwrapped (ls :< t))
 instance Getter a (Unwrapped (ls :< t)) => Getter a (ls :< t) where getter a = getter a ∘ unwrap'      ; {-# INLINE getter #-}
 instance Setter a (Unwrapped (ls :< t)) => Setter a (ls :< t) where setter   = over wrapped' ∘∘ setter ; {-# INLINE setter #-}
-
-
-
-
-
-
-
-
