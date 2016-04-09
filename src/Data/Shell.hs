@@ -1,14 +1,19 @@
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE MagicHash            #-}
 
 module Data.Shell where
 
 import Prologue hiding (Getter, Setter)
 
+import Control.Lens.Property (Set)
+import Data.Proxify
 import Data.Cover
-import Data.RTuple (TMap, Assocs, Access, Accessible, access, head', tail2, prepend2)
+import Data.RTuple (TMap, Assocs, Accessible, access, head', tail2, prepend2, type (:->>))
+import qualified Data.RTuple as RT
 import Type.Applicative
+import Data.Construction
 
 
 --------------------
@@ -17,34 +22,62 @@ import Type.Applicative
 
 -- === Definitions === --
 
-newtype Layer  t l  = Layer (LayerData t l)
-type    Layers t ls = Layer t <$> ls
+type family LayerData l
+newtype     Layer     l  = Layer (LayerData l)
+type        Layers    ls = Layer <$> ls
 
-type family LayerType   l
-type family LayerData t l
-type family LayerInfo t a
 
-class    HasLayer l a where layer :: Lens' a (Layer (LayerInfo (LayerType l) a) l)
-instance HasLayer I a where layer = impossible
-instance HasLayer l I where layer = impossible
+-- === Utils === --
+
+type LayerLens  l a = forall l'. Lens  a (Set (Layer l) (Layer l') a) (Layer l) (Layer l')
+type LayerLens' l a =            Lens' a                              (Layer l)
+
+class HasLayer l a where
+    layer :: LayerLens l a
+
+class HasLayer' l a where
+    layer' :: LayerLens' l a
+
+    default layer' :: (HasLayer l a, Set (Layer l) (Layer l) a ~ a) => Lens' a (Layer l)
+    layer' = layer ; {-# INLINE layer' #-}
+
+-- focus
+
+focusLayerProxy  :: HasLayer  l a => Proxy l -> LayerLens  l a
+focusLayerProxy' :: HasLayer' l a => Proxy l -> LayerLens' l a
+focusLayerProxy  _ = layer  ; {-# INLINE focusLayerProxy  #-}
+focusLayerProxy' _ = layer' ; {-# INLINE focusLayerProxy' #-}
+
+focusLayer  :: (HasLayer  l a, l ~ Proxified t) => t -> LayerLens  l a
+focusLayer' :: (HasLayer' l a, l ~ Proxified t) => t -> LayerLens' l a
+focusLayer  = focusLayerProxy  ∘ proxify ; {-# INLINE focusLayer  #-}
+focusLayer' = focusLayerProxy' ∘ proxify ; {-# INLINE focusLayer' #-}
+
+-- access
+
+type family Access t a
+
+accessLayerProxy  :: forall t l a. (HasLayer  l a, l ~ Access t a) => Proxy t -> LayerLens  l a
+accessLayerProxy' :: forall t l a. (HasLayer' l a, l ~ Access t a) => Proxy t -> LayerLens' l a
+accessLayerProxy  _ = focusLayer  (Proxy :: Proxy l) ; {-# INLINE accessLayerProxy  #-}
+accessLayerProxy' _ = focusLayer' (Proxy :: Proxy l) ; {-# INLINE accessLayerProxy' #-}
+
+accessLayer  :: forall t l a. (HasLayer  l a, l ~ Access (Proxified t) a) => t -> LayerLens  l a
+accessLayer' :: forall t l a. (HasLayer' l a, l ~ Access (Proxified t) a) => t -> LayerLens' l a
+accessLayer  _ = focusLayer  (Proxy :: Proxy l) ; {-# INLINE accessLayer  #-}
+accessLayer' _ = focusLayer' (Proxy :: Proxy l) ; {-# INLINE accessLayer' #-}
+
+access' :: (HasLayer' l a, l ~ Access (Proxified t) a) => t -> Lens' a (LayerData l)
+access' t = accessLayer' t ∘ wrapped'
 
 
 -- === Instances === --
 
+-- Show
+deriving instance Show (Unwrapped (Layer l)) => Show (Layer l)
+
 -- Wrappers
 makeWrapped ''Layer
-
--- Basic
-deriving instance NFData (LayerData t l) => NFData (Layer t l)
-deriving instance Show   (LayerData t l) => Show   (Layer t l)
-
--- Base
-type instance LayerType (Layer t l) = t
-
--- Casting
-instance Castable (Unwrapped (Layer t l)) (Unwrapped (Layer t' l')) => Castable (Layer t l) (Layer t' l') where
-    cast = wrapped %~ cast ; {-# INLINE cast #-}
-
 
 
 --------------------
@@ -53,37 +86,30 @@ instance Castable (Unwrapped (Layer t l)) (Unwrapped (Layer t' l')) => Castable 
 
 -- === Definitions === --
 
-newtype Shell   t (ls :: [*]) = Shell (TMap (Assocs ls (Layers t ls)))
-type    Shelled t (ls :: [*]) = Cover (Shell t ls)
-makeWrapped ''Shell
+newtype Shell   ls = Shell (TMap (ls :->> Layers ls))
+type    Shelled ls = Cover (Shell ls)
 
-
--- === Utils === --
-
-shellLayer :: forall ls l t. (Access l (Assocs ls (Layers t ls)) ~ Layer t l, Accessible l (Assocs ls (Layers t ls)))
-           => Lens' (Shell t ls) (Layer t l)
-shellLayer = wrapped' . access (Proxy :: Proxy l) ; {-# INLINE shellLayer #-}
+type ls :| a = Shelled ls a
 
 
 -- === Instances === --
 
-type instance Unlayered (Shelled t (l ': ls) a) = Shelled t ls a
-instance      Layered   (Shelled t (l ': ls) a) where
-    layered = lens (\(Cover s a) -> Cover (s & wrapped %~ (^. tail2)) a) (\(Cover (Shell tmap) _) (Cover s a) -> Cover (s & wrapped %~ prepend2 (tmap ^. (wrapped' . head'))) a)
+-- Show
+deriving instance Show (Unwrapped (Shell ls)) => Show (Shell ls)
+
+-- Wrappers
+makeWrapped ''Shell
+type instance Unlayered (Shelled (l ': ls) a) = Shelled ls a
+instance      Layered   (Shelled (l ': ls) a) where
+    layered = lens (\                       (Cover c a) -> Cover (c & wrapped %~ (^. tail2)) a)
+                   (\(Cover (Shell tmap) _) (Cover c a) -> Cover (c & wrapped %~ prepend2 (tmap ^. (wrapped' . head'))) a)
     {-# INLINE layered #-}
 
+-- HasLayer
+type     ShellLayer l ls = (Accessible l (Assocs ls (FMap Layer ls)), RT.Access l (Assocs ls (FMap Layer ls)) ~ Layer l)
+instance ShellLayer l ls         => HasLayer' l (Shell   ls  ) where layer' = wrapped' . access (Proxy :: Proxy l) ; {-# INLINE layer' #-}
+instance HasLayer'  l (Shell ls) => HasLayer' l (Shelled ls a) where layer' = covering' ∘ layer'                   ; {-# INLINE layer' #-}
 
-
--- type :|
--- -- class
---
--- type family TermOf a
--- data TermLayerType
--- data TermLayer a
--- type instance LayerInfo TermLayerType a = TermLayer (TermOf a)
---
---
--- data Succs
---
--- type instance LayerType Succs = TermLayerType
--- type instance LayerData (TermLayer term) Succs = Int
+-- Creator
+instance Creator m (Unwrapped (Shell ls)) => Creator m (Shell ls) where
+    create = wrap' <$> create ; {-# INLINE create #-}
