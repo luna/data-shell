@@ -81,13 +81,13 @@ makeWrapped ''Layer
 
 
 --------------------
--- === Shell === --
+-- === Stack === --
 --------------------
 
 -- === Definitions === --
 
-newtype Shell   ls = Shell (TMap (ls :->> Layers ls))
-type    Shelled ls = Cover (Shell ls)
+newtype Stack   ks ls = Stack (TMap (ks :->> Layers ls))
+type    Shelled ls = Cover (Stack ls ls)
 
 type ls :| a = Shelled ls a
 
@@ -95,21 +95,21 @@ type ls :| a = Shelled ls a
 -- === Instances === --
 
 -- Show
-deriving instance Show (Unwrapped (Shell ls)) => Show (Shell ls)
+deriving instance Show (Unwrapped (Stack ks ls)) => Show (Stack ks ls)
 
 -- Wrappers
-makeWrapped ''Shell
+makeWrapped ''Stack
 type instance Unlayered (Shelled (l ': ls) a) = Shelled ls a
 instance      Layered   (Shelled (l ': ls) a) where
     layered = lens (\                       (Cover c a) -> Cover (c & wrapped %~ (^. tail2)) a)
-                   (\(Cover (Shell tmap) _) (Cover c a) -> Cover (c & wrapped %~ prepend2 (tmap ^. (wrapped' . head'))) a)
+                   (\(Cover (Stack tmap) _) (Cover c a) -> Cover (c & wrapped %~ prepend2 (tmap ^. (wrapped' . head'))) a)
     {-# INLINE layered #-}
 
 -- HasLayer
-type     ShellLayer l ls = (Accessible l (Assocs ls (FMap Layer ls)), RT.Access l (Assocs ls (FMap Layer ls)) ~ Layer l)
-instance ShellLayer l ls         => HasLayer' l (Shell   ls  ) where layer' = wrapped' . access (Proxy :: Proxy l) ; {-# INLINE layer' #-}
-instance HasLayer'  l (Shell ls) => HasLayer' l (Shelled ls a) where layer' = covering' ∘ layer'                   ; {-# INLINE layer' #-}
+type     ShellLayer l ks ls = (Accessible l (Assocs ks (FMap Layer ls)), RT.Access l (Assocs ks (FMap Layer ls)) ~ Layer l)
+instance ShellLayer l ks ls            => HasLayer' l (Stack   ks ls) where layer' = wrapped' . access (Proxy :: Proxy l) ; {-# INLINE layer' #-}
+instance HasLayer'  l (Stack ls ls) => HasLayer' l (Shelled ls a) where layer' = covering' ∘ layer'                   ; {-# INLINE layer' #-}
 
 -- Creator
-instance Creator m (Unwrapped (Shell ls)) => Creator m (Shell ls) where
+instance Creator m (Unwrapped (Stack ks ls)) => Creator m (Stack ks ls) where
     create = wrap' <$> create ; {-# INLINE create #-}
