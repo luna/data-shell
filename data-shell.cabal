@@ -5,7 +5,7 @@
 ---------------------------------------------------
 
 name:                data-shell
-version:             1.0.4
+version:             1.0.5
 synopsis:            Data shell is a dependent-type utility allowing wrapping any data-type into layers containing additional information.
 -- description:
 license:             Apache-2.0
@@ -58,7 +58,7 @@ Library
         Data.Shell,
         Data.Shell_OLD
 
-  build-depends:      base >=4.6 && <4.9
+  build-depends:      base >=4.6 && <4.10
                     , convert
                     , data-construction
                     , deepseq

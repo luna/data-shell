@@ -111,5 +111,5 @@ instance ShellLayer l ks ls            => HasLayer' l (Stack   ks ls) where laye
 instance HasLayer'  l (Stack ls ls) => HasLayer' l (Shelled ls a) where layer' = covering' ∘ layer'                   ; {-# INLINE layer' #-}
 
 -- Creator
-instance Creator m (Unwrapped (Stack ks ls)) => Creator m (Stack ks ls) where
+instance (Monad m, Creator m (Unwrapped (Stack ks ls))) => Creator m (Stack ks ls) where
     create = wrap' <$> create ; {-# INLINE create #-}
