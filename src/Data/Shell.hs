@@ -10,7 +10,7 @@ import Prologue hiding (Getter, Setter)
 import Control.Lens.Property (Set)
 import Data.Proxify
 import Data.Cover
-import Data.RTuple (TMap, Assocs, Accessible, access, head', tail2, prepend2, type (:->>))
+import Data.RTuple (TMap, Assocs, Accessible, access, head', tail2, prepend2, type (:->>), Empty, empty)
 import qualified Data.RTuple as RT
 import Type.Applicative
 import Data.Construction
@@ -74,7 +74,9 @@ access' t = accessLayer' t ∘ wrapped'
 -- === Instances === --
 
 -- Show
-deriving instance Show (Unwrapped (Layer l)) => Show (Layer l)
+-- Rewrite to two methods - show and repr. Repr should omit the wrapper printing, like show currently
+-- deriving instance Show (Unwrapped (Layer l)) => Show (Layer l)
+instance Show (Unwrapped (Layer l)) => Show (Layer l) where show = show . unwrap
 
 -- Wrappers
 makeWrapped ''Layer
@@ -86,7 +88,7 @@ makeWrapped ''Layer
 
 -- === Definitions === --
 
-newtype Stack   ks ls = Stack (TMap (ks :->> Layers ls))
+newtype Stack   ks ls = Stack (TMap ks (Layers ls))
 type    Shelled ls = Cover (Stack ls ls)
 
 type ls :| a = Shelled ls a
@@ -105,8 +107,13 @@ instance      Layered   (Shelled (l ': ls) a) where
                    (\(Cover (Stack tmap) _) (Cover c a) -> Cover (c & wrapped %~ prepend2 (tmap ^. (wrapped' . head'))) a)
     {-# INLINE layered #-}
 
+-- Construction
+
+instance (ks ~ '[], ls ~ '[]) => Empty (Stack ks ls) where
+    empty = Stack empty ; {-# INLINE empty #-}
+
 -- HasLayer
-type     ShellLayer l ks ls = (Accessible l (Assocs ks (FMap Layer ls)), RT.Access l (Assocs ks (FMap Layer ls)) ~ Layer l)
+type     ShellLayer l ks ls = (Accessible l ks (FMap Layer ls), RT.Access2 l ks (FMap Layer ls) ~ Layer l)
 instance ShellLayer l ks ls            => HasLayer' l (Stack   ks ls) where layer' = wrapped' . access (Proxy :: Proxy l) ; {-# INLINE layer' #-}
 instance HasLayer'  l (Stack ls ls) => HasLayer' l (Shelled ls a) where layer' = covering' ∘ layer'                   ; {-# INLINE layer' #-}
 
