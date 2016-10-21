@@ -10,7 +10,7 @@ import Prologue hiding (Getter, Setter)
 import Control.Lens.Property (Set)
 import Data.Proxify
 import Data.Cover
-import Data.RTuple (TMap, Assocs, Accessible, access, head', tail2, prepend2, type (:->>), Empty, empty)
+import Data.RTuple (TMap, Assocs, head', tail2, prepend2, Empty, empty)
 import qualified Data.RTuple as RT
 import Type.Applicative
 import Data.Construction
@@ -40,6 +40,8 @@ class HasLayer' l a where
 
     default layer' :: (HasLayer l a, Set (Layer l) (Layer l) a ~ a) => Lens' a (Layer l)
     layer' = layer ; {-# INLINE layer' #-}
+
+
 
 -- focus
 
@@ -86,37 +88,59 @@ makeWrapped ''Layer
 -- === Stack === --
 --------------------
 
--- === Definitions === --
+    -- -- === Definitions === --
+    --
+    -- newtype Stack   ks ls = Stack (TMap ks (Layers ls))
+    -- type    Shelled ls = Cover (Stack ls ls)
+    --
+    -- type ls :| a = Shelled ls a
+    --
+    --
+    -- -- === Instances === --
+    --
+    -- -- Show
+    -- deriving instance Show (Unwrapped (Stack ks ls)) => Show (Stack ks ls)
+    --
+    -- -- Wrappers
+    -- makeWrapped ''Stack
+    -- type instance Unlayered (Shelled (l ': ls) a) = Shelled ls a
+    -- instance      Layered   (Shelled (l ': ls) a) where
+    --     layered = lens (\                       (Cover c a) -> Cover (c & wrapped %~ (^. tail2)) a)
+    --                    (\(Cover (Stack tmap) _) (Cover c a) -> Cover (c & wrapped %~ prepend2 (tmap ^. (wrapped' . head'))) a)
+    --     {-# INLINE layered #-}
+    --
+    -- -- Construction
+    --
+    -- instance (ks ~ '[], ls ~ '[]) => Empty (Stack ks ls) where
+    --     empty = Stack empty ; {-# INLINE empty #-}
+    --
+    -- -- HasLayer
+    -- -- type     ShellLayer l ks ls = (Accessible l ks (FMap Layer ls), RT.Access2 l ks (FMap Layer ls) ~ Layer l)
+    -- -- instance ShellLayer l ks ls            => HasLayer' l (Stack   ks ls) where layer' = wrapped' . access (Proxy :: Proxy l) ; {-# INLINE layer' #-}
+    -- -- instance HasLayer'  l (Stack ls ls) => HasLayer' l (Shelled ls a) where layer' = covering' ∘ layer'                   ; {-# INLINE layer' #-}
+    --
+    -- -- Creator
+    -- instance (Monad m, Creator m (Unwrapped (Stack ks ls))) => Creator m (Stack ks ls) where
+    --     create = wrap' <$> create ; {-# INLINE create #-}
+    --
+    --
 
-newtype Stack   ks ls = Stack (TMap ks (Layers ls))
-type    Shelled ls = Cover (Stack ls ls)
 
-type ls :| a = Shelled ls a
+----------------------------
 
 
--- === Instances === --
-
--- Show
-deriving instance Show (Unwrapped (Stack ks ls)) => Show (Stack ks ls)
-
--- Wrappers
-makeWrapped ''Stack
-type instance Unlayered (Shelled (l ': ls) a) = Shelled ls a
-instance      Layered   (Shelled (l ': ls) a) where
-    layered = lens (\                       (Cover c a) -> Cover (c & wrapped %~ (^. tail2)) a)
-                   (\(Cover (Stack tmap) _) (Cover c a) -> Cover (c & wrapped %~ prepend2 (tmap ^. (wrapped' . head'))) a)
-    {-# INLINE layered #-}
-
--- Construction
-
-instance (ks ~ '[], ls ~ '[]) => Empty (Stack ks ls) where
-    empty = Stack empty ; {-# INLINE empty #-}
-
--- HasLayer
-type     ShellLayer l ks ls = (Accessible l ks (FMap Layer ls), RT.Access2 l ks (FMap Layer ls) ~ Layer l)
-instance ShellLayer l ks ls            => HasLayer' l (Stack   ks ls) where layer' = wrapped' . access (Proxy :: Proxy l) ; {-# INLINE layer' #-}
-instance HasLayer'  l (Stack ls ls) => HasLayer' l (Shelled ls a) where layer' = covering' ∘ layer'                   ; {-# INLINE layer' #-}
-
--- Creator
-instance (Monad m, Creator m (Unwrapped (Stack ks ls))) => Creator m (Stack ks ls) where
-    create = wrap' <$> create ; {-# INLINE create #-}
+-- type family Tag_Access t a
+--
+-- data Tagged t a = Tagged a deriving (Show, Functor, Traversable, Foldable)
+--
+-- class HasTag t a where
+--     tagged :: Lens' a (Tagged t (Tag_Access t a))
+--
+-- tagged' :: HasTagged t a => Proxy t -> Lens' a (Tagged t (Tag_Access t a))
+-- tagged' _ = layer2
+--
+--
+--
+--
+--
+-- newtype Stack ls ds = Stack (TMap ls (Layers2 ls ds))

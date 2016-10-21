@@ -9,7 +9,7 @@ import Prologue hiding (Getter, Setter)
 import Data.Construction
 import Data.Layer_OLD.Cover_OLD
 import Type.Bool
-import Data.Prop
+import Old.Data.Prop
 
 
 

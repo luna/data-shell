@@ -49,4 +49,3 @@ type instance Set  Covering v (Cover c a) = Cover v a
 instance HasProperty Covering (Cover c a) where
     property _ = lens (\(Cover c _) -> c) (\(Cover _ a) c -> Cover c a)
     {-# INLINE property #-}
-
