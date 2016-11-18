@@ -7,7 +7,7 @@ module Data.Shell where
 
 import Prologue hiding (Getter, Setter)
 
-import Control.Lens.Property (Set)
+import Data.Property (Update)
 import Data.Proxify
 import Data.Cover
 import Data.RTuple (TMap, Assocs, head', tail2, prepend2, Empty, empty)
@@ -29,7 +29,7 @@ type        Layers    ls = Layer <$> ls
 
 -- === Utils === --
 
-type LayerLens  l a = forall l'. Lens  a (Set (Layer l) (Layer l') a) (Layer l) (Layer l')
+type LayerLens  l a = forall l'. Lens  a (Update (Layer l) (Layer l') a) (Layer l) (Layer l')
 type LayerLens' l a =            Lens' a                              (Layer l)
 
 class HasLayer l a where
@@ -38,7 +38,7 @@ class HasLayer l a where
 class HasLayer' l a where
     layer' :: LayerLens' l a
 
-    default layer' :: (HasLayer l a, Set (Layer l) (Layer l) a ~ a) => Lens' a (Layer l)
+    default layer' :: (HasLayer l a, Update (Layer l) (Layer l) a ~ a) => Lens' a (Layer l)
     layer' = layer ; {-# INLINE layer' #-}
 
 

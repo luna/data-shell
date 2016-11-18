@@ -1,7 +1,6 @@
 module Data.Layered where
 
 import Prelude
-import Control.Lens.Property
 import Control.Lens
 
 

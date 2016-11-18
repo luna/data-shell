@@ -1,7 +1,6 @@
 module Data.Cover where
 
 import Prologue
-import Control.Lens.Property
 
 
 -- === Definitions ===
