@@ -15,4 +15,4 @@ name: data-shell
 stability: experimental
 synopsis: Data shell is a dependent-type utility allowing wrapping any data-type into
   layers containing additional information.
-version: '0.2'
+version: '0.3'

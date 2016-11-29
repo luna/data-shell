@@ -3,7 +3,7 @@
 -- see: https://github.com/sol/hpack
 
 name:           data-shell
-version:        0.1
+version:        0.2
 synopsis:       Data shell is a dependent-type utility allowing wrapping any data-type into layers containing additional information.
 category:       Data
 stability:      experimental
