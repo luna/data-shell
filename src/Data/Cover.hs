@@ -1,6 +1,6 @@
 module Data.Cover where
 
-import Prologue
+import Prologue_old
 
 
 -- === Definitions ===

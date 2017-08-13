@@ -5,7 +5,7 @@
 
 module Data.Shell where
 
-import Prologue hiding (Getter, Setter)
+import Prologue_old hiding (Getter, Setter)
 
 import Data.Property (Update)
 import Data.Proxify

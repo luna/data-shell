@@ -4,7 +4,7 @@
 
 module Data.Shell_OLD where
 
-import Prologue hiding (Getter, Setter)
+import Prologue_old hiding (Getter, Setter)
 
 import Data.Construction
 import Data.Layer_OLD.Cover_OLD
